@@ -1,29 +1,29 @@
-import { Gender } from "../../../generated/prisma/enums";
+import { Gender } from "../../../generated/prisma/enums.js";
 export interface ICreateDoctorPayload {
-    password: string;
-    doctor: {
-        name: string;
-        email: string;
-        profilePhoto?: string;
-        contactNumber?: string;
-        address?: string;
-        registrationNumber: string;
-        experience?: number;
-        gender: Gender;
-        appointmentFee: number;
-        qualification: string;
-        currentWorkingPlace: string;
-        designation: string;
-    }
-    specialties: string[];
+  password: string;
+  doctor: {
+    name: string;
+    email: string;
+    profilePhoto?: string;
+    contactNumber?: string;
+    address?: string;
+    registrationNumber: string;
+    experience?: number;
+    gender: Gender;
+    appointmentFee: number;
+    qualification: string;
+    currentWorkingPlace: string;
+    designation: string;
+  };
+  specialties: string[];
 }
 export interface ICreateAdminPayload {
-    password: string;
-    admin: {
-        name: string;
-        email: string;
-        profilePhoto?: string;
-        contactNumber?: string;
-    }
-    role: "ADMIN" | "SUPER_ADMIN";
+  password: string;
+  admin: {
+    name: string;
+    email: string;
+    profilePhoto?: string;
+    contactNumber?: string;
+  };
+  role: "ADMIN" | "SUPER_ADMIN";
 }

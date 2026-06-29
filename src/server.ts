@@ -1,16 +1,16 @@
-import app from "./app";
-import { envVars } from "./app/config/env";
-import { seedSuperAdmin } from "./app/utils/seed";
+import app from "./app.js";
+import { seedSuperAdmin } from "./app/utils/seed.js";
 
-const bootstrap = async() => {
-    try {
-        await seedSuperAdmin();
-        app.listen(envVars.PORT, () => {
-            console.log(`Server is running on http://localhost:${envVars.PORT}`);
-        });
-    } catch (error) {
-        console.error('Failed to start server:', error);
-    }
+const bootstrap = async () => {
+  await seedSuperAdmin();
+
+  app.listen(process.env.PORT, () => {
+    console.log(`Server running on ${process.env.PORT}`);
+  });
+};
+
+if (process.env.NODE_ENV === "development") {
+  bootstrap();
 }
 
-bootstrap();
+export default app;

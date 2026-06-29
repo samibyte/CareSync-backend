@@ -5,8 +5,9 @@
   "main": "index.js",
   "scripts": {
     "start": "node dist/server.js",
-    "build": "pnpm tsup src/server.ts --format esm --platform node --target node24 --out-dir dist --clean",
+    "build": "tsc",
     "dev": "tsx watch src/server.ts",
+    "postinstall": "prisma generate",
     "lint": "eslint ./src/**/*",
     "migrate": "prisma migrate dev",
     "generate": "prisma generate",
