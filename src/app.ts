@@ -23,7 +23,7 @@ app.set("view engine", "ejs");
 app.set("views", path.resolve(process.cwd(), `src/app/templates`));
 
 // 1. Secure HTTP Headers using helmet
-app.use(helmet());
+app.use((helmet as any)());
 
 // 2. Stripe Webhook route requires raw body parsing
 app.post(
