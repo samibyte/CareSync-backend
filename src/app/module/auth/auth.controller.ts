@@ -1,6 +1,5 @@
 import { Request, Response } from "express";
 import status from "http-status";
-import ms, { StringValue } from "ms";
 import { envVars } from "../../config/env.js";
 import AppError from "../../errorHelpers/AppError.js";
 import { auth } from "../../lib/auth.js";
@@ -11,11 +10,7 @@ import { tokenUtils } from "../../utils/token.js";
 import { AuthService } from "./auth.service.js";
 
 const registerPatient = catchAsync(async (req: Request, res: Response) => {
-  const maxAge = ms(envVars.ACCESS_TOKEN_EXPIRES_IN as StringValue);
-  console.log({ maxAge });
   const payload = req.body;
-
-  console.log(payload);
 
   const result = await AuthService.registerPatient(payload);
 
@@ -62,7 +57,6 @@ const loginUser = catchAsync(async (req: Request, res: Response) => {
 
 const getMe = catchAsync(async (req: Request, res: Response) => {
   const user = req.user;
-  console.log({ user });
   const result = await AuthService.getMe(user);
   sendResponse(res, {
     httpStatusCode: status.OK,
@@ -166,10 +160,12 @@ const forgetPassword = catchAsync(async (req: Request, res: Response) => {
   const { email } = req.body;
   await AuthService.forgetPassword(email);
 
+  // Always return 200 to prevent user enumeration
   sendResponse(res, {
     httpStatusCode: status.OK,
     success: true,
-    message: "Password reset OTP sent to email successfully",
+    message:
+      "If that email is registered and verified, a reset OTP has been sent.",
   });
 });
 
@@ -227,16 +223,24 @@ const googleLoginSuccess = catchAsync(async (req: Request, res: Response) => {
 
   tokenUtils.setAccessTokenCookie(res, accessToken);
   tokenUtils.setRefreshTokenCookie(res, refreshToken);
-  // ?redirect=//profile -> /profile
+
+  // Strict open-redirect guard:
+  // Must start with "/" but not "//" (protocol-relative) or "/\"
   const isValidRedirectPath =
-    redirectPath.startsWith("/") && !redirectPath.startsWith("//");
+    redirectPath.startsWith("/") &&
+    !redirectPath.startsWith("//") &&
+    !redirectPath.startsWith("/\\");
+
   const finalRedirectPath = isValidRedirectPath ? redirectPath : "/dashboard";
 
   res.redirect(`${envVars.FRONTEND_URL}${finalRedirectPath}`);
 });
 
 const handleOAuthError = catchAsync((req: Request, res: Response) => {
-  const error = (req.query.error as string) || "oauth_failed";
+  // Encode to prevent query-param injection
+  const error = encodeURIComponent(
+    (req.query.error as string) || "oauth_failed",
+  );
   res.redirect(`${envVars.FRONTEND_URL}/login?error=${error}`);
 });
 

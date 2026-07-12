@@ -23,5 +23,6 @@ model Appointment {
     @@index([doctorId])
     @@index([scheduleId])
     @@index([status])
+    @@index([paymentStatus, createdAt])
     @@map("appointments")
 }

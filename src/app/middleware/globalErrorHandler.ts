@@ -11,7 +11,9 @@ import {
   TErrorSources,
 } from "../interfaces/error.interface.js";
 
-export const globalErrorHandler = async (
+// Synchronous error handler — Express requires a 4-arg signature.
+// Cloudinary cleanup is fire-and-forget to avoid blocking the response.
+export const globalErrorHandler = (
   err: unknown,
   req: Request,
   res: Response,
@@ -22,37 +24,22 @@ export const globalErrorHandler = async (
   }
 
   if (req.file) {
-    await deleteFileFromCloudinary(req.file.path);
+    deleteFileFromCloudinary(req.file.path).catch((e) =>
+      console.error("Cloudinary cleanup failed:", e),
+    );
   }
 
   if (req.files && Array.isArray(req.files) && req.files.length > 0) {
     const imageUrls = req.files.map((file) => file.path);
-    await Promise.all(imageUrls.map((url) => deleteFileFromCloudinary(url)));
+    Promise.all(imageUrls.map((url) => deleteFileFromCloudinary(url))).catch(
+      (e) => console.error("Cloudinary cleanup failed:", e),
+    );
   }
 
   let errorSources: TErrorSources[] = [];
   let statusCode: number = status.INTERNAL_SERVER_ERROR;
   let message: string = "Internal Server Error";
   let stack: string | undefined = undefined;
-
-  //Zod Error Patttern
-  /*
-     error.issues; 
-    /* [
-      {
-        expected: 'string',
-        code: 'invalid_type',
-        path: [ 'username' , 'password' ], => username password
-        message: 'Invalid input: expected string'
-      },
-      {
-        expected: 'number',
-        code: 'invalid_type',
-        path: [ 'xp' ],
-        message: 'Invalid input: expected number'
-      }
-    ] 
-    */
 
   if (err instanceof z.ZodError) {
     const simplifiedError = handleZodError(err);
@@ -82,6 +69,7 @@ export const globalErrorHandler = async (
     ];
   }
 
+  // Only expose internals in development
   const errorResponse: TErrorResponse = {
     success: false,
     message: message,

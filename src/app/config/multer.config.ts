@@ -6,7 +6,7 @@ const storage = new CloudinaryStorage({
   cloudinary: cloudinaryUpload,
   params: async (req, file) => {
     const originalName = file.originalname;
-    const extension = originalName.split(".").pop()?.toLocaleLowerCase();
+    const extension = originalName.split(".").pop()?.toLowerCase();
 
     const fileNameWithoutExtension = originalName
       .split(".")
@@ -34,4 +34,23 @@ const storage = new CloudinaryStorage({
   },
 });
 
-export const multerUpload = multer({ storage });
+export const multerUpload = multer({
+  storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // Limit to 5MB file size to prevent DoS
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedMimeTypes = [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "application/pdf",
+    ];
+
+    if (allowedMimeTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Invalid file type. Only JPEG, PNG, WEBP, and PDF are allowed."));
+    }
+  },
+});

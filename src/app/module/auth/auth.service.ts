@@ -23,18 +23,13 @@ const registerPatient = async (payload: IRegisterPatientPayload) => {
       name,
       email,
       password,
-      //default values
-      // needsPasswordChange: false,
-      // role: Role.PATIENT
     },
   });
 
   if (!data.user) {
-    // throw new Error("Failed to register patient");
     throw new AppError(status.BAD_REQUEST, "Failed to register patient");
   }
 
-  //TODO : Create Patient Profile In Transaction After Sign Up Of Patient In USer Model
   try {
     const patient = await prisma.$transaction(
       async (tx: Prisma.TransactionClient) => {
@@ -77,7 +72,6 @@ const registerPatient = async (payload: IRegisterPatientPayload) => {
       patient,
     };
   } catch (error) {
-    console.log("Transaction error : ", error);
     await prisma.user.delete({
       where: {
         id: data.user.id,
@@ -191,6 +185,15 @@ const getNewToken = async (refreshToken: string, sessionToken: string) => {
 
   const data = verifiedRefreshToken.data as JwtPayload;
 
+  // Prevent token/session swap attacks — the refresh token must belong to the
+  // same user that owns the session being renewed.
+  if (data.userId !== isSessionTokenExists.userId) {
+    throw new AppError(
+      status.UNAUTHORIZED,
+      "Token and session user mismatch",
+    );
+  }
+
   const newAccessToken = tokenUtils.getAccessToken({
     userId: data.userId,
     role: data.role,
@@ -211,13 +214,14 @@ const getNewToken = async (refreshToken: string, sessionToken: string) => {
     emailVerified: data.emailVerified,
   });
 
+  // Fix: was 60 * 60 * 60 * 24 (≈2500 days). Correct value is 1 day.
   const { token } = await prisma.session.update({
     where: {
       token: sessionToken,
     },
     data: {
       token: sessionToken,
-      expiresAt: new Date(Date.now() + 60 * 60 * 60 * 24 * 1000),
+      expiresAt: new Date(Date.now() + 60 * 60 * 24 * 1000),
       updatedAt: new Date(),
     },
   });
@@ -324,23 +328,23 @@ const verifyEmail = async (email: string, otp: string) => {
   }
 };
 
+// Returns silently (no error) even if the email does not exist, to prevent
+// user enumeration. The controller always returns a generic 200 message.
 const forgetPassword = async (email: string) => {
   const isUserExist = await prisma.user.findUnique({
-    where: {
-      email,
-    },
+    where: { email },
   });
 
-  if (!isUserExist) {
-    throw new AppError(status.NOT_FOUND, "User not found");
+  if (
+    !isUserExist ||
+    isUserExist.isDeleted ||
+    isUserExist.status === UserStatus.DELETED
+  ) {
+    return; // Silent — do not reveal account existence
   }
 
   if (!isUserExist.emailVerified) {
-    throw new AppError(status.BAD_REQUEST, "Email not verified");
-  }
-
-  if (isUserExist.isDeleted || isUserExist.status === UserStatus.DELETED) {
-    throw new AppError(status.NOT_FOUND, "User not found");
+    return; // Silent — do not reveal verification state
   }
 
   await auth.api.requestPasswordResetEmailOTP({

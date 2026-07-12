@@ -1,5 +1,4 @@
 import status from "http-status";
-// import { uuidv7 } from "zod/mini";
 import { v7 as uuidv7 } from "uuid";
 import type { Prisma } from "../../../generated/prisma/client.js";
 import { PaymentStatus, Role } from "../../../generated/prisma/enums.js";
@@ -11,7 +10,6 @@ import { prisma } from "../../lib/prisma.js";
 import { AppointmentStatus } from "./../../../generated/prisma/enums.js";
 import { IBookAppointmentPayload } from "./appointment.interface.js";
 
-// Pay Now Book Appointment
 const bookAppointment = async (
   payload: IBookAppointmentPayload,
   user: IRequestUser,
@@ -69,8 +67,6 @@ const bookAppointment = async (
         },
       });
 
-      //TODO : Payment Integration will be here
-
       const transactionId = String(uuidv7());
 
       const paymentData = await tx.payment.create({
@@ -100,10 +96,7 @@ const bookAppointment = async (
           appointmentId: appointmentData.id,
           paymentId: paymentData.id,
         },
-
         success_url: `${envVars.FRONTEND_URL}/dashboard/payment/payment-success`,
-
-        // cancel_url: `${envVars.FRONTEND_URL}/dashboard/payment/payment-failed`,
         cancel_url: `${envVars.FRONTEND_URL}/dashboard/appointments`,
       });
 
@@ -123,22 +116,19 @@ const bookAppointment = async (
 };
 
 const getMyAppointments = async (user: IRequestUser) => {
-  //user can be patient or doctor, so we need to check both
-  const patientData = await prisma.patient.findUnique({
-    where: {
-      email: user?.email,
-    },
-  });
-
-  const doctorData = await prisma.doctor.findUnique({
-    where: {
-      email: user?.email,
-    },
-  });
-
   let appointments = [];
 
-  if (patientData) {
+  if (user?.role === Role.PATIENT) {
+    const patientData = await prisma.patient.findUnique({
+      where: {
+        email: user?.email,
+      },
+    });
+
+    if (!patientData) {
+      throw new AppError(status.NOT_FOUND, "Patient profile not found");
+    }
+
     appointments = await prisma.appointment.findMany({
       where: {
         patientId: patientData.id,
@@ -148,7 +138,17 @@ const getMyAppointments = async (user: IRequestUser) => {
         schedule: true,
       },
     });
-  } else if (doctorData) {
+  } else if (user?.role === Role.DOCTOR) {
+    const doctorData = await prisma.doctor.findUnique({
+      where: {
+        email: user?.email,
+      },
+    });
+
+    if (!doctorData) {
+      throw new AppError(status.NOT_FOUND, "Doctor profile not found");
+    }
+
     appointments = await prisma.appointment.findMany({
       where: {
         doctorId: doctorData.id,
@@ -159,16 +159,11 @@ const getMyAppointments = async (user: IRequestUser) => {
       },
     });
   } else {
-    throw new Error("User not found");
+    throw new AppError(status.BAD_REQUEST, "Invalid user role");
   }
 
   return appointments;
 };
-
-// 1. Completed Or Cancelled Appointments should not be allowed to update status
-// 2. Doctors can only update Appoinment status from schedule to inprogress or inprogress to complted or schedule to cancelled.
-// 3. Patients can only cancel the scheduled appointment if it scheduled not completed or cancelled or inprogress.
-// 4. Admin and Super admin can update to any status.
 
 const changeAppointmentStatus = async (
   appointmentId: string,
@@ -178,20 +173,16 @@ const changeAppointmentStatus = async (
   const appointmentData = await prisma.appointment.findUniqueOrThrow({
     where: {
       id: appointmentId,
-      // status: AppointmentStatus.SCHEDULED
     },
     include: {
       doctor: true,
     },
   });
 
-  // if (!appointmentData) {
-  //     throw new AppError(status.NOT_FOUND, "Appointment not found or already completed/cancelled");
-  // }
-
   if (user?.role === Role.DOCTOR) {
-    if (!(user?.email === appointmentData.doctor.email))
+    if (user?.email !== appointmentData.doctor.email) {
       throw new AppError(status.BAD_REQUEST, "This is not your appointment");
+    }
   }
 
   return await prisma.appointment.update({
@@ -204,26 +195,23 @@ const changeAppointmentStatus = async (
   });
 };
 
-// refactoring on include of doctor and patient data in appointment details, we can use query builder to get the data in single query instead of multiple queries in case of doctor and patient both
 const getMySingleAppointment = async (
   appointmentId: string,
   user: IRequestUser,
 ) => {
-  const patientData = await prisma.patient.findUnique({
-    where: {
-      email: user?.email,
-    },
-  });
-
-  const doctorData = await prisma.doctor.findUnique({
-    where: {
-      email: user?.email,
-    },
-  });
-
   let appointment;
 
-  if (patientData) {
+  if (user?.role === Role.PATIENT) {
+    const patientData = await prisma.patient.findUnique({
+      where: {
+        email: user?.email,
+      },
+    });
+
+    if (!patientData) {
+      throw new AppError(status.NOT_FOUND, "Patient profile not found");
+    }
+
     appointment = await prisma.appointment.findFirst({
       where: {
         id: appointmentId,
@@ -234,7 +222,17 @@ const getMySingleAppointment = async (
         schedule: true,
       },
     });
-  } else if (doctorData) {
+  } else if (user?.role === Role.DOCTOR) {
+    const doctorData = await prisma.doctor.findUnique({
+      where: {
+        email: user?.email,
+      },
+    });
+
+    if (!doctorData) {
+      throw new AppError(status.NOT_FOUND, "Doctor profile not found");
+    }
+
     appointment = await prisma.appointment.findFirst({
       where: {
         id: appointmentId,
@@ -254,9 +252,11 @@ const getMySingleAppointment = async (
   return appointment;
 };
 
-// integrate query builder
-const getAllAppointments = async () => {
+const getAllAppointments = async (page = 1, limit = 20) => {
+  const skip = (page - 1) * limit;
   const appointments = await prisma.appointment.findMany({
+    skip,
+    take: limit,
     include: {
       doctor: true,
       patient: true,
@@ -361,10 +361,6 @@ const initiatePayment = async (appointmentId: string, user: IRequestUser) => {
     },
   });
 
-  if (!appointmentData) {
-    throw new AppError(status.NOT_FOUND, "Appointment not found");
-  }
-
   if (!appointmentData.payment) {
     throw new AppError(
       status.NOT_FOUND,
@@ -372,7 +368,7 @@ const initiatePayment = async (appointmentId: string, user: IRequestUser) => {
     );
   }
 
-  if (appointmentData.payment?.status === PaymentStatus.PAID) {
+  if (appointmentData.payment.status === PaymentStatus.PAID) {
     throw new AppError(
       status.BAD_REQUEST,
       "Payment already completed for this appointment",
@@ -402,10 +398,7 @@ const initiatePayment = async (appointmentId: string, user: IRequestUser) => {
       appointmentId: appointmentData.id,
       paymentId: appointmentData.payment.id,
     },
-
     success_url: `${envVars.FRONTEND_URL}/dashboard/payment/payment-success?appointment_id=${appointmentData.id}&payment_id=${appointmentData.payment.id}`,
-
-    // cancel_url: `${envVars.FRONTEND_URL}/dashboard/payment/payment-failed`,
     cancel_url: `${envVars.FRONTEND_URL}/dashboard/appointments?error=payment_cancelled`,
   });
 
@@ -419,23 +412,24 @@ const cancelUnpaidAppointments = async () => {
 
   const unpaidAppointments = await prisma.appointment.findMany({
     where: {
-      // status: AppointmentStatus.SCHEDULED,
       createdAt: {
         lte: thirtyMinutesAgo,
       },
       paymentStatus: PaymentStatus.UNPAID,
+      status: AppointmentStatus.SCHEDULED,
     },
   });
 
-  const appointmentToCancel = unpaidAppointments.map(
-    (appointment: { id: string }) => appointment.id,
-  );
+  if (unpaidAppointments.length === 0) return;
+
+  const appointmentIdsToCancel = unpaidAppointments.map((app) => app.id);
 
   await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    // Cancel appointments in bulk
     await tx.appointment.updateMany({
       where: {
         id: {
-          in: appointmentToCancel,
+          in: appointmentIdsToCancel,
         },
       },
       data: {
@@ -443,14 +437,19 @@ const cancelUnpaidAppointments = async () => {
       },
     });
 
+    // Delete pending payments in bulk
     await tx.payment.deleteMany({
       where: {
         appointmentId: {
-          in: appointmentToCancel,
+          in: appointmentIdsToCancel,
         },
       },
     });
 
+    // Bulk release doctor schedules (we construct update statements or handle updates)
+    // Unfortunately updateMany does not support multi-condition matching easily in Prisma
+    // without composite key updates, but we can do a loop of single updates inside transaction
+    // which is transactional, but to optimize, we execute it.
     for (const unpaidAppointment of unpaidAppointments) {
       await tx.doctorSchedules.update({
         where: {

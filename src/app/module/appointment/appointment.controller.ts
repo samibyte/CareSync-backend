@@ -66,7 +66,9 @@ const getMySingleAppointment = catchAsync(
 );
 
 const getAllAppointments = catchAsync(async (req: Request, res: Response) => {
-  const appointments = await AppointmentService.getAllAppointments();
+  const page = Number(req.query.page) || 1;
+  const limit = Number(req.query.limit) || 20;
+  const appointments = await AppointmentService.getAllAppointments(page, limit);
   sendResponse(res, {
     success: true,
     httpStatusCode: status.OK,

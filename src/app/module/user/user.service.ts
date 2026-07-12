@@ -9,22 +9,19 @@ import { prisma } from "../../lib/prisma.js";
 import { ICreateAdminPayload, ICreateDoctorPayload } from "./user.interface.js";
 
 const createDoctor = async (payload: ICreateDoctorPayload) => {
-  const specialties: Specialty[] = [];
-
-  for (const specialtyId of payload.specialties) {
-    const specialty = await prisma.specialty.findUnique({
-      where: {
-        id: specialtyId,
+  const specialties = await prisma.specialty.findMany({
+    where: {
+      id: {
+        in: payload.specialties,
       },
-    });
-    if (!specialty) {
-      // throw new Error(`Specialty with id ${specialtyId} not found`);
-      throw new AppError(
-        status.NOT_FOUND,
-        `Specialty with id ${specialtyId} not found`,
-      );
-    }
-    specialties.push(specialty);
+    },
+  });
+
+  if (specialties.length !== payload.specialties.length) {
+    throw new AppError(
+      status.NOT_FOUND,
+      "One or more specialties not found",
+    );
   }
 
   const userExists = await prisma.user.findUnique({

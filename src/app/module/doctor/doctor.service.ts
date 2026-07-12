@@ -12,25 +12,7 @@ import {
 } from "./doctor.constant.js";
 import { IUpdateDoctorPayload } from "./doctor.interface.js";
 
-// /doctors?specialty=cardiology&include=doctorSchedules,appointments
 const getAllDoctors = async (query: IQueryParams) => {
-  // const doctors = await prisma.doctor.findMany({
-  //     where: {
-  //         isDeleted: false,
-  //     },
-  //     include: {
-  //         user: true,
-  //         specialties: {
-  //             include: {
-  //                 specialty: true
-  //             }
-  //         }
-  //     }
-  // })
-
-  // // const query = new QueryBuilder().paginate().search().filter();
-  // return doctors;
-
   const queryBuilder = new QueryBuilder<
     Doctor,
     Prisma.DoctorWhereInput,
@@ -47,8 +29,16 @@ const getAllDoctors = async (query: IQueryParams) => {
       isDeleted: false,
     })
     .include({
-      user: true,
-      // specialties: true,
+      user: {
+        select: {
+          id: true,
+          name: true,
+          image: true,
+          role: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      },
       specialties: {
         include: {
           specialty: true,
@@ -61,7 +51,6 @@ const getAllDoctors = async (query: IQueryParams) => {
     .fields()
     .execute();
 
-  console.log(result);
   return result;
 };
 
@@ -72,7 +61,16 @@ const getDoctorById = async (id: string) => {
       isDeleted: false,
     },
     include: {
-      user: true,
+      user: {
+        select: {
+          id: true,
+          name: true,
+          image: true,
+          role: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      },
       specialties: {
         include: {
           specialty: true,
@@ -157,7 +155,6 @@ const updateDoctor = async (id: string, payload: IUpdateDoctorPayload) => {
   return doctor;
 };
 
-//soft delete
 const deleteDoctor = async (id: string) => {
   const isDoctorExist = await prisma.doctor.findUnique({
     where: { id },
@@ -182,7 +179,7 @@ const deleteDoctor = async (id: string) => {
       data: {
         isDeleted: true,
         deletedAt: new Date(),
-        status: UserStatus.DELETED, // Optional: you may also want to block the user
+        status: UserStatus.DELETED,
       },
     });
 

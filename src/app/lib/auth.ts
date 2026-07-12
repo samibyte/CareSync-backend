@@ -5,13 +5,12 @@ import { Role, UserStatus } from "../../generated/prisma/enums.js";
 import { envVars } from "../config/env.js";
 import { sendEmail } from "../utils/email.js";
 import { prisma } from "./prisma.js";
-// If your Prisma file is located elsewhere, you can change the path
 
 export const auth = betterAuth({
   baseURL: envVars.BETTER_AUTH_URL,
   secret: envVars.BETTER_AUTH_SECRET,
   database: prismaAdapter(prisma, {
-    provider: "postgresql", // or "mysql", "postgresql", ...etc
+    provider: "postgresql",
   }),
 
   emailAndPassword: {
@@ -23,7 +22,6 @@ export const auth = betterAuth({
     google: {
       clientId: envVars.GOOGLE_CLIENT_ID,
       clientSecret: envVars.GOOGLE_CLIENT_SECRET,
-      // callbackUrl: envVars.GOOGLE_CALLBACK_URL,
       mapProfileToUser: () => {
         return {
           role: Role.PATIENT,
@@ -82,11 +80,14 @@ export const auth = betterAuth({
     emailOTP({
       overrideDefaultEmailVerification: true,
       async sendVerificationOTP({ email, otp, type }) {
-        console.log(`\n--- [OTP DEBUG] ---`);
-        console.log(`Type: ${type}`);
-        console.log(`Email: ${email}`);
-        console.log(`OTP Code: ${otp}`);
-        console.log(`-------------------\n`);
+        // Log OTP only in development environment to prevent leakage in production logs
+        if (envVars.NODE_ENV === "development") {
+          console.log(`\n--- [OTP DEBUG] ---`);
+          console.log(`Type: ${type}`);
+          console.log(`Email: ${email}`);
+          console.log(`OTP Code: ${otp}`);
+          console.log(`-------------------\n`);
+        }
 
         try {
           if (type === "email-verification") {
@@ -168,8 +169,7 @@ export const auth = betterAuth({
   ],
 
   advanced: {
-    // disableCSRFCheck: true,
-    useSecureCookies: false,
+    useSecureCookies: envVars.NODE_ENV === "production",
     cookies: {
       state: {
         attributes: {

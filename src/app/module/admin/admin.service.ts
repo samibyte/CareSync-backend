@@ -1,6 +1,6 @@
 import status from "http-status";
 import { Prisma } from "../../../generated/prisma/client.js";
-import { UserStatus } from "../../../generated/prisma/enums.js";
+import { Role, UserStatus } from "../../../generated/prisma/enums.js";
 import AppError from "../../errorHelpers/AppError.js";
 import { IRequestUser } from "../../interfaces/requestUser.interface.js";
 import { prisma } from "../../lib/prisma.js";
@@ -27,9 +27,7 @@ const getAdminById = async (id: string) => {
   return admin;
 };
 
-const updateAdmin = async (id: string, payload: IUpdateAdminPayload) => {
-  //TODO: Validate who is updating the admin user. Only super admin can update admin user and only super admin can update super admin user but admin user cannot update super admin user
-
+const updateAdmin = async (id: string, payload: IUpdateAdminPayload, user: IRequestUser) => {
   const isAdminExist = await prisma.admin.findUnique({
     where: {
       id,
@@ -38,6 +36,15 @@ const updateAdmin = async (id: string, payload: IUpdateAdminPayload) => {
 
   if (!isAdminExist) {
     throw new AppError(status.NOT_FOUND, "Admin Or Super Admin not found");
+  }
+
+  // Prevent ADMIN from editing a SUPER_ADMIN record
+  const targetUser = await prisma.user.findUnique({
+    where: { id: isAdminExist.userId },
+  });
+
+  if (targetUser?.role === Role.SUPER_ADMIN && user.role !== Role.SUPER_ADMIN) {
+    throw new AppError(status.FORBIDDEN, "Only SUPER_ADMIN can modify a SUPER_ADMIN record");
   }
 
   const { admin } = payload;
@@ -54,10 +61,7 @@ const updateAdmin = async (id: string, payload: IUpdateAdminPayload) => {
   return updatedAdmin;
 };
 
-//soft delete admin user by setting isDeleted to true and also delete the user session and account
 const deleteAdmin = async (id: string, user: IRequestUser) => {
-  //TODO: Validate who is deleting the admin user. Only super admin can delete admin user and only super admin can delete super admin user but admin user cannot delete super admin user
-
   const isAdminExist = await prisma.admin.findUnique({
     where: {
       id,
@@ -68,8 +72,17 @@ const deleteAdmin = async (id: string, user: IRequestUser) => {
     throw new AppError(status.NOT_FOUND, "Admin Or Super Admin not found");
   }
 
-  if (isAdminExist.id === user.userId) {
+  if (isAdminExist.userId === user.userId) {
     throw new AppError(status.BAD_REQUEST, "You cannot delete yourself");
+  }
+
+  // Prevent ADMIN from deleting a SUPER_ADMIN record
+  const targetUser = await prisma.user.findUnique({
+    where: { id: isAdminExist.userId },
+  });
+
+  if (targetUser?.role === Role.SUPER_ADMIN && user.role !== Role.SUPER_ADMIN) {
+    throw new AppError(status.FORBIDDEN, "Only SUPER_ADMIN can delete a SUPER_ADMIN record");
   }
 
   const result = await prisma.$transaction(
@@ -87,7 +100,7 @@ const deleteAdmin = async (id: string, user: IRequestUser) => {
         data: {
           isDeleted: true,
           deletedAt: new Date(),
-          status: UserStatus.DELETED, // Optional: you may also want to block the user
+          status: UserStatus.DELETED,
         },
       });
 

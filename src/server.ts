@@ -9,8 +9,6 @@ const bootstrap = async () => {
   });
 };
 
-if (process.env.NODE_ENV === "development") {
-  bootstrap();
-}
+bootstrap();
 
 export default app;

@@ -31,8 +31,9 @@ const getAdminById = catchAsync(async (req: Request, res: Response) => {
 const updateAdmin = catchAsync(async (req: Request, res: Response) => {
   const { id } = req.params;
   const payload = req.body;
+  const user = req.user;
 
-  const updatedAdmin = await AdminService.updateAdmin(id as string, payload);
+  const updatedAdmin = await AdminService.updateAdmin(id as string, payload, user);
 
   sendResponse(res, {
     httpStatusCode: status.OK,

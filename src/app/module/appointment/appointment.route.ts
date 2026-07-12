@@ -2,6 +2,8 @@ import { Router } from "express";
 import { Role } from "../../../generated/prisma/enums.js";
 import { checkAuth } from "../../middleware/checkAuth.js";
 import { AppointmentController } from "./appointment.controller.js";
+import { validateRequest } from "../../middleware/validateRequest.js";
+import { changeAppointmentStatusZodSchema } from "./appointment.validation.js";
 
 const router = Router();
 
@@ -18,6 +20,7 @@ router.get(
 router.patch(
   "/change-appointment-status/:id",
   checkAuth(Role.PATIENT, Role.DOCTOR, Role.ADMIN, Role.SUPER_ADMIN),
+  validateRequest(changeAppointmentStatusZodSchema),
   AppointmentController.changeAppointmentStatus,
 );
 router.get(
