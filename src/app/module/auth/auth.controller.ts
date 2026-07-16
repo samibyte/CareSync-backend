@@ -25,7 +25,6 @@ const registerPatient = catchAsync(async (req: Request, res: Response) => {
     success: true,
     message: "Patient registered successfully",
     data: {
-      token,
       accessToken,
       refreshToken,
       ...rest,
