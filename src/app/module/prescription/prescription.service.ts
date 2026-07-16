@@ -89,7 +89,105 @@ const getPrescriptions = async (user: IRequestUser) => {
   return result;
 };
 
+// Patient: view their own received prescriptions
+const getMyPrescriptions = async (user: IRequestUser) => {
+  const patientData = await prisma.patient.findUnique({
+    where: { email: user.email },
+  });
+
+  if (!patientData) {
+    throw new AppError(status.NOT_FOUND, "Patient profile not found");
+  }
+
+  const result = await prisma.prescription.findMany({
+    where: { patientId: patientData.id },
+    include: {
+      doctor: {
+        include: {
+          specialties: {
+            include: { specialty: true },
+          },
+        },
+      },
+      appointment: true,
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return result;
+};
+
+// Doctor: view prescriptions they have issued
+const getMyIssuedPrescriptions = async (user: IRequestUser) => {
+  const doctorData = await prisma.doctor.findUnique({
+    where: { email: user.email },
+  });
+
+  if (!doctorData) {
+    throw new AppError(status.NOT_FOUND, "Doctor profile not found");
+  }
+
+  const result = await prisma.prescription.findMany({
+    where: { doctorId: doctorData.id },
+    include: {
+      patient: true,
+      appointment: true,
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return result;
+};
+
+// Any authenticated role: get a single prescription by ID (with ownership check)
+const getPrescriptionById = async (user: IRequestUser, prescriptionId: string) => {
+  const prescription = await prisma.prescription.findUnique({
+    where: { id: prescriptionId },
+    include: {
+      doctor: true,
+      patient: true,
+      appointment: true,
+    },
+  });
+
+  if (!prescription) {
+    throw new AppError(status.NOT_FOUND, "Prescription not found");
+  }
+
+  // Admins can view any prescription
+  if (user.role === Role.ADMIN || user.role === Role.SUPER_ADMIN) {
+    return prescription;
+  }
+
+  // Patients can only view their own prescriptions
+  if (user.role === Role.PATIENT) {
+    const patientData = await prisma.patient.findUnique({
+      where: { email: user.email },
+    });
+    if (!patientData || prescription.patientId !== patientData.id) {
+      throw new AppError(status.FORBIDDEN, "You are not authorized to view this prescription");
+    }
+    return prescription;
+  }
+
+  // Doctors can only view prescriptions they issued
+  if (user.role === Role.DOCTOR) {
+    const doctorData = await prisma.doctor.findUnique({
+      where: { email: user.email },
+    });
+    if (!doctorData || prescription.doctorId !== doctorData.id) {
+      throw new AppError(status.FORBIDDEN, "You are not authorized to view this prescription");
+    }
+    return prescription;
+  }
+
+  throw new AppError(status.FORBIDDEN, "Access forbidden for this role");
+};
+
 export const PrescriptionService = {
   createPrescription,
   getPrescriptions,
+  getMyPrescriptions,
+  getMyIssuedPrescriptions,
+  getPrescriptionById,
 };
