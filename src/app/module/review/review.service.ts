@@ -113,7 +113,132 @@ const getReviews = async (user: IRequestUser) => {
   return result;
 };
 
+// Patient: view reviews they have submitted
+const getMyReviews = async (user: IRequestUser) => {
+  const patientData = await prisma.patient.findUnique({
+    where: { email: user.email },
+  });
+
+  if (!patientData) {
+    throw new AppError(status.NOT_FOUND, "Patient profile not found");
+  }
+
+  const result = await prisma.review.findMany({
+    where: { patientId: patientData.id },
+    include: {
+      doctor: {
+        include: {
+          specialties: {
+            include: { specialty: true },
+          },
+        },
+      },
+      appointment: true,
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return result;
+};
+
+// Doctor: view reviews they have received
+const getMyReceivedReviews = async (user: IRequestUser) => {
+  const doctorData = await prisma.doctor.findUnique({
+    where: { email: user.email },
+  });
+
+  if (!doctorData) {
+    throw new AppError(status.NOT_FOUND, "Doctor profile not found");
+  }
+
+  const result = await prisma.review.findMany({
+    where: { doctorId: doctorData.id },
+    include: {
+      patient: true,
+      appointment: true,
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return result;
+};
+
+// Public: get all reviews for a specific doctor (for doctor profile pages)
+const getReviewsByDoctor = async (doctorId: string) => {
+  const doctor = await prisma.doctor.findUnique({ where: { id: doctorId } });
+
+  if (!doctor) {
+    throw new AppError(status.NOT_FOUND, "Doctor not found");
+  }
+
+  const result = await prisma.review.findMany({
+    where: { doctorId },
+    include: {
+      patient: {
+        select: {
+          id: true,
+          name: true,
+          profilePhoto: true,
+        },
+      },
+      appointment: true,
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return result;
+};
+
+// Any authenticated role: get a single review by ID (with ownership check)
+const getReviewById = async (user: IRequestUser, reviewId: string) => {
+  const review = await prisma.review.findUnique({
+    where: { id: reviewId },
+    include: {
+      doctor: true,
+      patient: true,
+      appointment: true,
+    },
+  });
+
+  if (!review) {
+    throw new AppError(status.NOT_FOUND, "Review not found");
+  }
+
+  // Admins can view any review
+  if (user.role === Role.ADMIN || user.role === Role.SUPER_ADMIN) {
+    return review;
+  }
+
+  // Patients can only view their own submitted reviews
+  if (user.role === Role.PATIENT) {
+    const patientData = await prisma.patient.findUnique({
+      where: { email: user.email },
+    });
+    if (!patientData || review.patientId !== patientData.id) {
+      throw new AppError(status.FORBIDDEN, "You are not authorized to view this review");
+    }
+    return review;
+  }
+
+  // Doctors can only view reviews they received
+  if (user.role === Role.DOCTOR) {
+    const doctorData = await prisma.doctor.findUnique({
+      where: { email: user.email },
+    });
+    if (!doctorData || review.doctorId !== doctorData.id) {
+      throw new AppError(status.FORBIDDEN, "You are not authorized to view this review");
+    }
+    return review;
+  }
+
+  throw new AppError(status.FORBIDDEN, "Access forbidden for this role");
+};
+
 export const ReviewService = {
   createReview,
   getReviews,
+  getMyReviews,
+  getMyReceivedReviews,
+  getReviewsByDoctor,
+  getReviewById,
 };
