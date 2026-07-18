@@ -119,6 +119,15 @@ const loginUser = async (payload: ILoginUserPayload) => {
     emailVerified: data.user.emailVerified,
   });
 
+  // If the user must change their password (e.g. doctor/admin created by an
+  // admin), proactively send a password-reset OTP so it arrives in their inbox
+  // by the time they reach the reset-password page.
+  if (data.user.needPasswordChange) {
+    await auth.api.requestPasswordResetEmailOTP({
+      body: { email },
+    });
+  }
+
   return {
     ...data,
     accessToken,
