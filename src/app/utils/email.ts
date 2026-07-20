@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import ejs from "ejs";
 import status from "http-status";
 import nodemailer from "nodemailer";
@@ -20,7 +20,7 @@ interface SendEmailOptions {
   to: string;
   subject: string;
   templateName: string;
-  templateData: Record<string, any>;
+  templateData: Record<string, unknown>;
   attachments?: {
     filename: string;
     content: Buffer | string;
@@ -56,8 +56,9 @@ export const sendEmail = async ({
     });
 
     console.log(`Email sent to ${to} : ${info.messageId}`);
-  } catch (error: any) {
-    console.log("Email Sending Error", error.message);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    console.log("Email Sending Error", errorMessage);
     throw new AppError(status.INTERNAL_SERVER_ERROR, "Failed to send email");
   }
 };

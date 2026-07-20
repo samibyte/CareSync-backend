@@ -1,7 +1,5 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import status from "http-status";
 import type { Prisma } from "../../../generated/prisma/client.js";
-import { Specialty } from "../../../generated/prisma/client.js";
 import { Role } from "../../../generated/prisma/enums.js";
 import AppError from "../../errorHelpers/AppError.js";
 import { auth } from "../../lib/auth.js";
@@ -164,7 +162,7 @@ const createAdmin = async (payload: ICreateAdminPayload) => {
     });
 
     return adminData;
-  } catch (error: any) {
+  } catch (error) {
     console.log("Error creating admin: ", error);
     await prisma.user.delete({
       where: {

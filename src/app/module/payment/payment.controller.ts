@@ -1,5 +1,3 @@
- 
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Request, Response } from "express";
 import status from "http-status";
 import { envVars } from "../../config/env.js";
@@ -21,7 +19,7 @@ const handleStripeWebhookEvent = catchAsync(async (req : Request, res : Response
 
     try {
         event = stripe.webhooks.constructEvent(req.body, signature, webhookSecret);
-    } catch (error : any) {
+    } catch (error) {
         console.error("Error processing Stripe webhook:", error);
         return res.status(status.BAD_REQUEST).json({message : "Error processing Stripe webhook"})
     }

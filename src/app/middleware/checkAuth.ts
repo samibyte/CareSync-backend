@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { NextFunction, Request, Response } from "express";
 import status from "http-status";
 import { Role, UserStatus } from "../../generated/prisma/enums.js";
@@ -131,7 +131,7 @@ export const checkAuth =
       }
 
       next();
-    } catch (error: any) {
+    } catch (error) {
       next(error);
     }
   };

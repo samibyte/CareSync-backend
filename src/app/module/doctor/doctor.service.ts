@@ -54,7 +54,42 @@ const getAllDoctors = async (query: IQueryParams) => {
   return result;
 };
 
+// Public profile — no appointments or prescriptions (safe for unauthenticated users)
 const getDoctorById = async (id: string) => {
+  const doctor = await prisma.doctor.findUnique({
+    where: {
+      id,
+      isDeleted: false,
+    },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          image: true,
+          role: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      },
+      specialties: {
+        include: {
+          specialty: true,
+        },
+      },
+      doctorSchedules: {
+        include: {
+          schedule: true,
+        },
+      },
+      reviews: true,
+    },
+  });
+  return doctor;
+};
+
+// Admin/internal view — includes appointments and prescriptions
+const getDoctorByIdAdmin = async (id: string) => {
   const doctor = await prisma.doctor.findUnique({
     where: {
       id,
@@ -150,7 +185,7 @@ const updateDoctor = async (id: string, payload: IUpdateDoctorPayload) => {
     }
   });
 
-  const doctor = await getDoctorById(id);
+  const doctor = await getDoctorByIdAdmin(id);
 
   return doctor;
 };
@@ -198,6 +233,7 @@ const deleteDoctor = async (id: string) => {
 export const DoctorService = {
   getAllDoctors,
   getDoctorById,
+  getDoctorByIdAdmin,
   updateDoctor,
   deleteDoctor,
 };

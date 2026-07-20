@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import Stripe from "stripe";
 import type { Prisma } from "../../../generated/prisma/client.js";
 import { PaymentStatus } from "../../../generated/prisma/enums.js";
@@ -65,7 +65,7 @@ const handlerStripeWebhookEvent = async (event: Stripe.Event) => {
               session.payment_status === "paid"
                 ? PaymentStatus.PAID
                 : PaymentStatus.UNPAID,
-            paymentGatewayData: session as any,
+            paymentGatewayData: session as unknown as Prisma.InputJsonValue,
           },
         });
       });

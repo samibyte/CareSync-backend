@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { toNodeHandler } from "better-auth/node";
 import cookieParser from "cookie-parser";
 import cors from "cors";
@@ -23,7 +23,7 @@ app.set("view engine", "ejs");
 app.set("views", path.resolve(process.cwd(), `src/app/templates`));
 
 // 1. Secure HTTP Headers using helmet
-app.use((helmet as any)());
+app.use(helmet());
 
 // 2. Stripe Webhook route requires raw body parsing
 app.post(
@@ -74,10 +74,10 @@ cron.schedule("*/25 * * * *", async () => {
   try {
     console.log("Running cron job to cancel unpaid appointments...");
     await AppointmentService.cancelUnpaidAppointments();
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error(
       "Error occurred while canceling unpaid appointments:",
-      error.message,
+      error instanceof Error ? error.message : String(error),
     );
   }
 });

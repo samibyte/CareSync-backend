@@ -14,8 +14,12 @@ router.get(
 );
 router.get(
   "/:id",
-  checkAuth(Role.ADMIN, Role.SUPER_ADMIN),
   DoctorController.getDoctorById,
+);
+router.get(
+  "/admin/:id",
+  checkAuth(Role.ADMIN, Role.SUPER_ADMIN),
+  DoctorController.getDoctorByIdAdmin,
 );
 router.patch(
   "/:id",
